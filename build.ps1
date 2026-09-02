@@ -67,7 +67,23 @@ Get-Content (Join-Path $env:LOCALAPPDATA "LanzadorPS5\selftest.log") -ErrorActio
 
 $tam = (Get-ChildItem (Join-Path $raiz "dist\LanzadorPS5") -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB
 Write-Host ""; Write-Host ("LISTO: {0}  ({1:N0} MB)" -f $exe, $tam) -ForegroundColor Green
-Write-Host "Acceso directo en el escritorio: .\build.ps1 -Acceso" -ForegroundColor DarkGray
+
+if ($args -contains "-Instalador") {
+    Write-Host ""; Write-Host "-- instalador --" -ForegroundColor Yellow
+    $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $iscc) { Write-Host "Falta Inno Setup 6. Instalalo con: winget install JRSoftware.InnoSetup" -ForegroundColor Red; exit 1 }
+    $ErrorActionPreference = "Continue"
+    & $iscc (Join-Path $raiz "installer.iss") 2>&1 | ForEach-Object { "$_" } | Select-Object -Last 6
+    $rc = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($rc -ne 0) { Write-Host "Inno Setup ha fallado (codigo $rc)." -ForegroundColor Red; exit 1 }
+    $inst = Get-ChildItem (Join-Path $raiz "dist") -Filter "LanzadorPS5-*-instalador.exe" | Select-Object -First 1
+    if ($inst) { Write-Host ("INSTALADOR: {0}  ({1:N0} MB)" -f $inst.FullName, ($inst.Length / 1MB)) -ForegroundColor Green }
+}
+
+Write-Host ""
+Write-Host "Opciones: .\build.ps1 -Acceso        acceso directo en el escritorio" -ForegroundColor DarkGray
+Write-Host "          .\build.ps1 -Instalador    genera el instalador .exe" -ForegroundColor DarkGray
 
 if ($args -contains "-Acceso") {
     $ws = New-Object -ComObject WScript.Shell

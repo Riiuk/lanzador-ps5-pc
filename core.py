@@ -71,21 +71,81 @@ def config_path() -> Path:
     return data_dir() / "config.json"
 
 
-def screenshots_dir() -> Path:
-    """Carpeta de capturas. Por defecto, Screenshots junto a la aplicacion.
+_defaults_instalacion = None
 
-    No se crea aqui: se crea al guardar la primera captura, que es lo que se
-    pidio. Si la carpeta de la app no es escribible (instalada en un sitio
-    protegido), quien llama debe usar screenshots_fallback().
+
+def install_defaults() -> dict:
+    """Valores elegidos durante la INSTALACION, guardados junto al ejecutable.
+
+    Existen porque el instalador no puede escribir en la configuracion del
+    usuario de forma fiable -corre elevado, y con varios usuarios cada uno tiene
+    la suya-, pero si en su propia carpeta. Asi la eleccion hecha al instalar
+    vale para cualquiera que use el equipo, y cada usuario puede seguir
+    cambiandola en su config.json, que manda por encima de esto.
+    """
+    global _defaults_instalacion
+    if _defaults_instalacion is None:
+        _defaults_instalacion = {}
+        p = app_dir() / "defaults.json"
+        try:
+            if p.exists():
+                with io.open(p, "r", encoding="utf-8") as fh:
+                    datos = json.load(fh)
+                if isinstance(datos, dict):
+                    _defaults_instalacion = datos
+        except Exception:
+            logging.getLogger(__name__).warning("defaults.json ilegible", exc_info=True)
+    return _defaults_instalacion
+
+
+def pictures_dir() -> Path:
+    """Carpeta Imagenes del usuario, preguntandosela a Windows.
+
+    Con la API y no juntando "~" con "Pictures": la carpeta puede estar
+    redirigida a OneDrive o a otra unidad, y en un Windows en espanol ni
+    siquiera se llama asi. Si la API falla, entonces si se recurre a la ruta
+    clasica.
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+        CSIDL_MYPICTURES = 0x0027
+        buf = ctypes.create_unicode_buffer(260)
+        shell32 = ctypes.WinDLL("shell32", use_last_error=True)
+        shell32.SHGetFolderPathW.argtypes = (wintypes.HWND, ctypes.c_int,
+                                             wintypes.HANDLE, wintypes.DWORD,
+                                             wintypes.LPWSTR)
+        shell32.SHGetFolderPathW.restype = ctypes.c_long
+        if shell32.SHGetFolderPathW(None, CSIDL_MYPICTURES, None, 0, buf) == 0:
+            if buf.value:
+                return Path(buf.value)
+    except Exception:
+        pass
+    return Path(os.path.expanduser("~")) / "Pictures"
+
+
+def screenshots_dir() -> Path:
+    """Carpeta de capturas, por orden de preferencia.
+
+    Ya NO va junto a la aplicacion: instalado en Archivos de programa esa
+    carpeta es de solo lectura y las capturas acabarian siempre en el plan B.
+    Ahora el destino se elige al instalar y, si no, va a Imagenes.
+
+    No se crea aqui: se crea al guardar la primera captura.
     """
     override = get("screenshots_dir")
     if override:
         return Path(override)
-    return app_dir() / "Screenshots"
+    del_instalador = install_defaults().get("screenshots_dir")
+    if del_instalador:
+        return Path(del_instalador)
+    return pictures_dir() / "Screenshots PS5"
 
 
 def screenshots_fallback() -> Path:
-    return Path(os.path.expanduser("~")) / "Pictures" / "Lanzador PS5"
+    """Ultimo recurso si el destino elegido no se puede escribir: una unidad
+    externa desconectada, una carpeta borrada, permisos cambiados."""
+    return pictures_dir() / "Screenshots PS5"
 
 
 def child_argv(mode: str, **kw) -> list:
@@ -128,6 +188,7 @@ DEFAULTS = {
     # ancho de banda del USB diera problemas). Para comparar a ojo sin tocar
     # esto: player.py --format mjpg
     "video_format": "yuy2",
+    # Vacio = usar lo que eligio el instalador y, si no hay nada, Imagenes.
     "screenshots_dir": "",
     "audio_in_name": "USB3.0",
     "audio_out_name": "",

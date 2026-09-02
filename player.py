@@ -96,7 +96,9 @@ class ScreenshotWriter:
         if self._dir is not None:
             return self._dir
         wanted = core.screenshots_dir()
-        for candidate in (wanted, core.screenshots_fallback()):
+        alternativa = core.screenshots_fallback()
+        candidatos = [wanted] if wanted == alternativa else [wanted, alternativa]
+        for candidate in candidatos:
             try:
                 candidate.mkdir(parents=True, exist_ok=True)
                 probe = candidate / ".escritura"

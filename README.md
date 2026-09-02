@@ -114,6 +114,27 @@ bloqueado dentro del driver, se le mata y el demonio sigue vivo.
 
 ## Instalación
 
+### Con el instalador
+
+Descarga `LanzadorPS5-x.y.z-instalador.exe` de la sección *Releases* y ejecútalo.
+Te preguntará dos cosas:
+
+1. **Dónde instalar**, con `C:\Program Files\Lanzador PS5` como sugerencia.
+2. **Dónde guardar las capturas**, con `Imágenes\Screenshots PS5` por defecto.
+
+La segunda pregunta no es un capricho: `Program Files` es de **solo lectura**
+para el usuario, así que las capturas no pueden guardarse junto al programa. La
+carpeta que elijas se crea durante la instalación y queda registrada en
+`defaults.json`, dentro de la carpeta del programa, de forma que vale para
+cualquier usuario del equipo. Cada uno puede cambiarla luego en su `config.json`.
+
+También puedes marcar que arranque con Windows. Esa casilla no la escribe el
+instalador: **lanza el propio programa** para que lo haga. Un instalador corre
+elevado y su `HKEY_CURRENT_USER` es el del usuario que aceptó el aviso de UAC,
+que no tiene por qué ser quien va a usar el programa.
+
+### Desde el código
+
 ```
 git clone https://github.com/Riiuk/lanzador-ps5-pc.git
 cd lanzador-ps5-pc
@@ -142,18 +163,22 @@ ps5.py --audio --measure   mide el patrón de entrega del driver de audio
 ps5.py --selftest          comprueba que todas las dependencias cargan
 ```
 
-## Compilar el ejecutable
+## Compilar
 
 ```
 .venv\Scripts\python.exe -m pip install -r requirements-build.txt
-.\build.ps1 -Acceso
+.\build.ps1                 # solo el .exe
+.\build.ps1 -Acceso         # y un acceso directo en el escritorio
+.\build.ps1 -Instalador     # y el instalador (necesita Inno Setup 6)
 ```
 
-Genera `dist\LanzadorPS5\LanzadorPS5.exe` (~184 MB) y un acceso directo en el
-escritorio. El script comprueba tres cosas antes de dar el resultado por bueno:
-que el icono se genera, que **PortAudio queda empaquetado** —si no, el `.exe`
-funciona pero sale mudo— y que el ejecutable **arranca de verdad** y encuentra
-todas sus dependencias.
+Genera `dist\LanzadorPS5\LanzadorPS5.exe` (~184 MB) y, con `-Instalador`, un
+`.exe` de instalación de ~49 MB.
+
+El script comprueba tres cosas antes de dar el resultado por bueno: que el icono
+se genera, que **PortAudio queda empaquetado** —si no, el `.exe` funciona pero
+sale mudo— y que el ejecutable **arranca de verdad** y encuentra sus
+dependencias. Compilar sin errores no demuestra ninguna de las tres.
 
 ---
 

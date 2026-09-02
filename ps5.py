@@ -15,7 +15,8 @@ subprocess, no con multiprocessing.
 
 import sys
 
-MODOS = ("--tray", "--player", "--audio", "--setup", "--selftest")
+MODOS = ("--tray", "--player", "--audio", "--setup", "--selftest",
+         "--autostart-on", "--autostart-off")
 
 AYUDA = """Lanzador PS5 PC
 
@@ -45,6 +46,17 @@ def main(argv=None):
             modo = a
             argv.pop(i)
             break
+
+    if modo in ("--autostart-on", "--autostart-off"):
+        # Los usa el instalador. NO puede escribir el la clave Run el mismo: corre
+        # elevado, asi que su HKCU es el del usuario que acepto el UAC, que no
+        # tiene por que ser quien va a usar el programa. Inno lo lanza con
+        # runasoriginaluser para que esto se ejecute como el usuario de verdad.
+        import core
+        import autostart
+        core.setup("autostart")
+        ok = autostart.enable() if modo == "--autostart-on" else autostart.disable()
+        return 0 if ok else 1
 
     if modo == "--selftest":
         # Comprobacion de humo para el .exe recien construido. Que PyInstaller
