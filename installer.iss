@@ -77,6 +77,28 @@ Type: files; Name: "{app}\defaults.json"
 var
   PaginaCapturas: TInputDirWizardPage;
 
+// OJO con los comentarios de llaves en Pascal Script: NO anidan. Si dentro de
+// un comentario { } se escribe el nombre de una constante entre llaves, la
+// primera llave de cierre termina el comentario y el resto se interpreta como
+// codigo. Por eso aqui se usan comentarios de linea.
+//
+// Inno no tiene constante para la carpeta Imagenes: la de Documentos existe,
+// la de Imagenes no. Y el atajo evidente -perfil de usuario mas \Pictures- da
+// una ruta EQUIVOCADA en cuanto la carpeta esta redirigida a otra unidad o a
+// OneDrive, que es de lo mas normal. Comprobado en la maquina de desarrollo:
+// alli Imagenes esta en D:\Pictures, mientras que C:\Users\<usuario>\Pictures
+// existe pero no es la buena. El atajo no habria dado ningun error: solo
+// habria sugerido en silencio la carpeta que no era.
+//
+// La ruta de verdad esta en el registro, ya expandida, en Shell Folders.
+function CarpetaImagenes(): String;
+begin
+  if not RegQueryStringValue(HKEY_CURRENT_USER,
+       'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders',
+       'My Pictures', Result) or (Result = '') then
+    Result := ExpandConstant('{userprofile}\Pictures');
+end;
+
 procedure InitializeWizard;
 begin
   { Segunda pregunta, justo despues de la carpeta de instalacion.
@@ -93,7 +115,7 @@ begin
     'Puedes cambiarla mas adelante en config.json.',
     False, '');
   PaginaCapturas.Add('');
-  PaginaCapturas.Values[0] := ExpandConstant('{userpics}\Screenshots PS5');
+  PaginaCapturas.Values[0] := AddBackslash(CarpetaImagenes()) + 'Screenshots PS5';
 end;
 
 function CarpetaCapturas(Param: String): String;
