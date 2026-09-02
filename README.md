@@ -225,4 +225,4 @@ WASAPI, falta la DLL de PortAudio.
 
 ## Licencia
 
-MIT.
+MIT. Copyright (c) 2026 Abel Santiago Fuentes.

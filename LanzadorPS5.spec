@@ -24,14 +24,14 @@ version_res = VSVersionInfo(
                       OS=0x40004, fileType=0x1, subtype=0x0),
     kids=[
         StringFileInfo([StringTable("040A04B0", [   # 040A = espanol, 04B0 = UTF-16
-            StringStruct("CompanyName", "Proyecto propio"),
+            StringStruct("CompanyName", "Abel Santiago Fuentes"),
             StringStruct("FileDescription", "Lanzador PS5"),
             StringStruct("FileVersion", VERSION_TXT),
             StringStruct("InternalName", "LanzadorPS5"),
             StringStruct("OriginalFilename", "LanzadorPS5.exe"),
             StringStruct("ProductName", "Lanzador PS5"),
             StringStruct("ProductVersion", VERSION_TXT),
-            StringStruct("LegalCopyright", ""),
+            StringStruct("LegalCopyright", "Copyright (c) 2026 Abel Santiago Fuentes"),
         ])]),
         VarFileInfo([VarStruct("Translation", [0x040A, 1200])]),
     ])

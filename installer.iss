@@ -6,7 +6,7 @@
 
 #define AppName        "Lanzador PS5"
 #define AppVersion     "1.0.0"
-#define AppPublisher   "Riiuk"
+#define AppPublisher   "Abel Santiago Fuentes"
 #define AppURL         "https://github.com/Riiuk/lanzador-ps5-pc"
 #define AppExe         "LanzadorPS5.exe"
 
