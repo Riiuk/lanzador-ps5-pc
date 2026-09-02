@@ -1,0 +1,22 @@
+# Entorno virtual: se reconstruye con requirements.txt
+.venv/
+
+# Resultado de la construccion
+build/
+dist/
+build.log
+
+# Generado por make_icon.py a partir de icon.jpg
+assets/ps5.ico
+assets/ps5-preview.png
+
+__pycache__/
+*.pyc
+
+# La configuracion vive en %LOCALAPPDATA%\LanzadorPS5\, no aqui, pero por si
+# alguien la copia al proyecto: contiene la IP y el identificador de SU consola.
+config.json
+*.log
+
+# Capturas de pantalla del usuario
+Screenshots/

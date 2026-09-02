@@ -1,0 +1,21 @@
+# Lanzador PS5 PC — dependencias de ejecución
+# Todo fijado, incluidas las transitivas: el venv nace vacio (py -m venv sin
+# --system-site-packages), asi que aqui no se da por instalado nada del
+# interprete del sistema.
+#
+# Todas tienen wheel binaria para cp39 / win_amd64: cero compilacion.
+
+# --- Tanda 1: video ---
+opencv-python==4.14.0.94
+numpy==2.0.2
+pygame==2.6.1
+
+# --- Tanda 2: audio ---
+sounddevice==0.5.6
+cffi==2.0.0
+pycparser==2.23
+
+# --- Tanda 3: bandeja y residente ---
+pystray==0.19.5
+pillow==11.3.0
+six==1.17.0

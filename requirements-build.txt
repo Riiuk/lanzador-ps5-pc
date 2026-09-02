@@ -1,0 +1,11 @@
+# Solo para CONSTRUIR el .exe. No hace falta para ejecutar el proyecto.
+#
+#   .venv\Scripts\python.exe -m pip install -r requirements-build.txt
+#   .\build.ps1
+
+pyinstaller==6.22.2
+
+# Trae los hooks de sounddevice, cv2 y pystray. El de sounddevice es el que
+# empaqueta la DLL de PortAudio: sin el, el .exe se construye igual pero sale
+# mudo, y el fallo no aparece hasta que lo ejecutas.
+pyinstaller-hooks-contrib==2026.7
