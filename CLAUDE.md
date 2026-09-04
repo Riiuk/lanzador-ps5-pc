@@ -215,11 +215,20 @@ patrón del driver), `--selftest`, `--player --windowed --format mjpg`, y
 
 - Verificado en un reinicio real (2026-09-04): arranca solo con Windows y
   apagar no saca la pantalla de «esta aplicación impide el apagado».
-- Publicado como *Release* en GitHub: `v1.0.2`, marcado latest, con el
+- Publicado como *Release* en GitHub: `v1.0.3`, marcado latest, con el
   instalador adjunto.
-- Verificado en el `.exe` instalado (1.0.2): globo sin el nombre repetido,
-  cursor que se retira a los 5 s, volumen que aguanta entre sesiones y
-  desinstalación que se niega a empezar con el programa abierto.
+- Verificado en el `.exe` instalado (1.0.3): globo sin el nombre repetido,
+  cursor que se retira a los 5 s **también a pantalla completa**, volumen que
+  aguanta entre sesiones y desinstalación que se niega a empezar con el
+  programa abierto.
+- La versión vive en **dos** sitios y hay que tocar los dos: `LanzadorPS5.spec`
+  (`VERSION` y `VERSION_TXT`) e `installer.iss` (`#define AppVersion`).
+- El paso de Inno Setup de `build.ps1 -Instalador` falla a veces con
+  «EndUpdateResource failed (110)» al estampar el icono en su propio
+  `Setup.exe`; en la misma tanda PyInstaller reintenta un `PermissionError` al
+  añadir el PKG. Es el antivirus escaneando `dist\` en tiempo real, no el
+  proyecto: el `.exe` ya está bien, basta relanzar `ISCC.exe installer.iss`
+  sin recompilar.
 - No implementado a propósito: control de cambio rápido de usuario (irrelevante
   en un PC doméstico de un usuario).
 - `jugar.cmd` usa el código fuente, no el `.exe`: útil para probar sin recompilar.
