@@ -77,7 +77,8 @@ if ($args -contains "-Instalador") {
     $rc = $LASTEXITCODE
     $ErrorActionPreference = "Stop"
     if ($rc -ne 0) { Write-Host "Inno Setup ha fallado (codigo $rc)." -ForegroundColor Red; exit 1 }
-    $inst = Get-ChildItem (Join-Path $raiz "dist") -Filter "LanzadorPS5-*-instalador.exe" | Select-Object -First 1
+    $inst = Get-ChildItem (Join-Path $raiz "dist") -Filter "LanzadorPS5-*-instalador.exe" |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($inst) { Write-Host ("INSTALADOR: {0}  ({1:N0} MB)" -f $inst.FullName, ($inst.Length / 1MB)) -ForegroundColor Green }
 }
 

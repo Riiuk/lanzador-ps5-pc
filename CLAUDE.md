@@ -190,7 +190,8 @@ patrón del driver), `--selftest`, `--player --windowed --format mjpg`.
 
 - Verificado en un reinicio real (2026-09-04): arranca solo con Windows y
   apagar no saca la pantalla de «esta aplicación impide el apagado».
-- Publicar el instalador como *Release* en GitHub.
+- Publicado como *Release* en GitHub: `v1.0.1`, marcado latest, con el
+  instalador adjunto.
 - Pendiente de recompilar: el globo sin `szInfoTitle` sólo se ha probado con
   el código fuente; falta verlo en el `.exe` instalado.
 - No implementado a propósito: control de cambio rápido de usuario (irrelevante
