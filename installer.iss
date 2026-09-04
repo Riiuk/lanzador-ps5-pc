@@ -5,7 +5,7 @@
 ; o, mejor, con  .\build.ps1 -Instalador , que antes construye el .exe.
 
 #define AppName        "Lanzador PS5"
-#define AppVersion     "1.0.1"
+#define AppVersion     "1.0.2"
 #define AppPublisher   "Abel Santiago Fuentes"
 #define AppURL         "https://github.com/Riiuk/lanzador-ps5-pc"
 #define AppExe         "LanzadorPS5.exe"
@@ -27,6 +27,11 @@ SolidCompression=yes
 WizardStyle=modern
 ; Instalar en Archivos de programa exige elevacion.
 PrivilegesRequired=admin
+; Sin esto, desinstalar con el programa abierto borraba lo que podia, dejaba
+; los DLL de _internal en disco -estan cargados- y aun asi terminaba diciendo
+; que todo habia ido bien. Con AppMutex, instalar y desinstalar se paran y
+; piden cerrar el programa. El mutex lo crean los tres procesos: winhy.marcar_en_uso.
+AppMutex=Local\LanzadorPS5_EN_USO_v1
 ArchitecturesInstallIn64BitMode=x64compatible
 ArchitecturesAllowed=x64compatible
 UninstallDisplayIcon={app}\{#AppExe}
@@ -72,6 +77,8 @@ Filename: "{app}\{#AppExe}"; Parameters: "--autostart-off"; Flags: runascurrentu
 
 [UninstallDelete]
 Type: files; Name: "{app}\defaults.json"
+; Y la carpeta entera despues, por si quedara algo que no instalo Inno.
+Type: filesandordirs; Name: "{app}"
 
 [Code]
 var
@@ -149,4 +156,43 @@ begin
       SaveStringToFile(ExpandConstant('{app}\defaults.json'), Json, False);
     end;
   end;
+end;
+
+
+// OJO: comentarios de linea, no de llaves. Ver la nota de mas arriba.
+//
+// Y ninguna linea puede EMPEZAR por almohadilla, ni con espacios delante: el
+// preprocesador la toma por una directiva suya y aborta con "Unknown
+// preprocessor directive". Por eso los #13#10 van al final de la linea
+// anterior y nunca al principio de la siguiente.
+//
+// usUninstall es ANTES de borrar nada, asi que el ejecutable todavia esta ahi
+// para poder llamarlo.
+procedure CurUninstallStepChanged(CurStep: TUninstallStep);
+var
+  rc: Integer;
+begin
+  if CurStep <> usUninstall then
+    Exit;
+
+  // En una desinstalacion silenciosa no hay a quien preguntar, y borrar datos
+  // sin permiso es lo ultimo que debe hacer un desinstalador desatendido.
+  if UninstallSilent then
+    Exit;
+
+  if MsgBox('Quieres borrar tambien tu configuracion y los registros?' + #13#10 + #13#10 +
+            'Si eliges No, al reinstalar conservaras el volumen, la consola' + #13#10 +
+            'encontrada y el resto de ajustes.' + #13#10 + #13#10 +
+            'Las capturas de pantalla NO se borran en ningun caso.',
+            mbConfirmation, MB_YESNO or MB_DEFBUTTON2) <> IDYES then
+    Exit;
+
+  // Como el usuario y NO elevado, por lo mismo que el autoarranque: la carpeta
+  // de datos vive en el LOCALAPPDATA de quien usa el programa, que no tiene por
+  // que ser el de quien acepto el UAC.
+  if (not ExecAsOriginalUser(ExpandConstant('{app}\{#AppExe}'), '--purge-data', '',
+                             SW_HIDE, ewWaitUntilTerminated, rc)) or (rc <> 0) then
+    MsgBox('No se han podido borrar la configuracion y los registros.' + #13#10 +
+           'Puedes hacerlo a mano en la carpeta LanzadorPS5 de %LOCALAPPDATA%.',
+           mbError, MB_OK);
 end;

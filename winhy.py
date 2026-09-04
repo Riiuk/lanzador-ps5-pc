@@ -105,6 +105,31 @@ def single_instance(nombre="Local\\LanzadorPS5_MUTEX_v1"):
     return ctypes.get_last_error() != ERROR_ALREADY_EXISTS
 
 
+_en_uso = None
+
+
+def marcar_en_uso(nombre="Local\LanzadorPS5_EN_USO_v1"):
+    """Mutex que existe solo como senal para el instalador (AppMutex de Inno).
+
+    No es el de instancia unica y no lo sustituye: aquel dice "ya hay un
+    demonio", este dice "hay algo del Lanzador vivo, no borres los archivos".
+
+    Lo crean los TRES roles a proposito. Quien mantiene cargados los DLL de
+    _internal y hace que el desinstalador no pueda borrar la carpeta es el
+    REPRODUCTOR, no el demonio; sin esto, desinstalar con la ventana abierta
+    dejaba media instalacion en disco y aun asi decia que todo habia ido bien.
+
+    No se mira ERROR_ALREADY_EXISTS: aqui no importa cuantos lo tengan abierto,
+    solo que el objeto exista mientras viva alguno. El handle no se cierra
+    nunca, igual que en single_instance: lo suelta el kernel al morir el
+    proceso, tambien si lo matan desde el Administrador de tareas.
+    """
+    global _en_uso
+    _en_uso = k32.CreateMutexW(None, False, nombre)
+    if not _en_uso:
+        log.debug("no se pudo crear el mutex de uso: %d", ctypes.get_last_error())
+
+
 # --------------------------------------------------------------------------
 # Eventos nombrados
 # --------------------------------------------------------------------------

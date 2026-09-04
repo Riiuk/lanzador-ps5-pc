@@ -16,7 +16,11 @@ subprocess, no con multiprocessing.
 import sys
 
 MODOS = ("--tray", "--player", "--audio", "--setup", "--selftest",
-         "--autostart-on", "--autostart-off")
+         "--autostart-on", "--autostart-off", "--purge-data")
+
+# Los tres que se quedan vivos y mantienen archivos abiertos en la carpeta de
+# instalacion. Son los que marcan el mutex que mira el instalador.
+ROLES = ("--tray", "--player", "--audio")
 
 AYUDA = """Lanzador PS5 PC
 
@@ -24,6 +28,7 @@ AYUDA = """Lanzador PS5 PC
   ps5.py --player    abre la ventana de juego ahora
   ps5.py --audio     solo el puente de audio (lo lanza el reproductor)
   ps5.py --setup     busca la consola en la red y guarda la configuracion
+  ps5.py --purge-data  borra config y registros (lo usa el desinstalador)
 
 Sin argumentos arranca en modo --tray, que es la forma normal de usarlo: se
 queda en la bandeja y abre la ventana solo cuando enciendes la PS5. Cada modo
@@ -46,6 +51,30 @@ def main(argv=None):
             modo = a
             argv.pop(i)
             break
+
+    if modo in ROLES:
+        # Antes de nada: mientras exista este mutex, el instalador y el
+        # desinstalador se niegan a tocar los archivos y piden cerrar el
+        # programa. Es ctypes pelado, no pesa nada y no importa cv2.
+        import winhy
+        winhy.marcar_en_uso()
+
+    if modo == "--purge-data":
+        # Lo llama el desinstalador si el usuario dice que si a borrar sus
+        # datos. Se lleva config.json y los registros; las capturas de pantalla
+        # NO estan ahi y no se tocan nunca.
+        #
+        # Sin core.setup(): abrir un log dentro de la carpeta que se va a
+        # borrar dejaria un fichero en uso y la carpeta sin borrar.
+        import shutil
+        import core
+        try:
+            shutil.rmtree(str(core.data_dir()))
+        except FileNotFoundError:
+            pass
+        except OSError:
+            return 1
+        return 0
 
     if modo in ("--autostart-on", "--autostart-off"):
         # Los usa el instalador. NO puede escribir el la clave Run el mismo: corre
