@@ -35,7 +35,8 @@ FLASH_S = 1.5
 QUIT_GRACE_S = 3.0
 
 # Segundos que el raton tiene que estar quieto sobre la ventana para que el
-# cursor se retire. A pantalla completa esta oculto siempre.
+# cursor se retire. Vale en los dos modos: a pantalla completa se arranca sin
+# cursor, pero moverlo lo devuelve y hace falta quien lo vuelva a esconder.
 CURSOR_HIDE_S = 5.0
 
 VOL_REPEAT_DELAY = 0.35     # espera antes de empezar a repetir
@@ -218,7 +219,8 @@ class Display:
 
         En ventana se deja visible y con el reloj a cero, para que volver de
         pantalla completa no aparezca ya sin cursor; que lo esconda la
-        inactividad. A pantalla completa, oculto y punto.
+        inactividad. A pantalla completa se entra ya sin cursor, sin esperar los
+        cinco segundos: ahi no hay nada que senalar.
         """
         self._mouse_last = time.monotonic()
         self._cursor(not self.fullscreen)
@@ -299,7 +301,11 @@ class Display:
         # SDL solo manda MOUSEMOTION de la ventana con foco, asi que mover el
         # raton por otro monitor no devuelve el cursor: justo lo que se quiere
         # mientras juegas.
-        if not self.fullscreen and ahora - self._mouse_last >= CURSOR_HIDE_S:
+        # El temporizador corre TAMBIEN a pantalla completa. Cualquier
+        # MOUSEMOTION saca el cursor, y mientras esto miraba solo el modo
+        # ventana no quedaba nadie que lo retirase: el primer movimiento del
+        # raton dejaba el puntero encima del juego el resto de la partida.
+        if ahora - self._mouse_last >= CURSOR_HIDE_S:
             self._cursor(False)
 
         return actions

@@ -120,6 +120,13 @@ Cada una costó una sesión de depuración. Ninguna da un error claro.
   muestra igual.
 - `SCALED` + `set_mode` repetido agota el renderer de SDL: hay tres planes para
   cambiar de modo, y `toggle_fullscreen()` devuelve 0 **siempre** en esta máquina.
+- **Quien muestra el cursor tiene que tener quién lo esconda.** `MOUSEMOTION`
+  saca el puntero sin mirar el modo, pero el temporizador de inactividad
+  miraba `not self.fullscreen`: a pantalla completa el primer movimiento del
+  ratón dejaba el cursor encima del juego el resto de la partida. Medido: sin
+  tocar el ratón SDL **no** manda ningún `MOUSEMOTION` espurio al crear la
+  ventana (0 en 6 s), así que ocultar al arrancar funcionaba y el fallo solo
+  aparecía al mover. Es la segunda vez que muerde el mismo patrón.
 - **`{userpics}` no existe en Inno Setup**, y `{userprofile}\Pictures` es peor:
   no da error pero apunta mal si Imágenes está redirigida. Aquí lo está
   (`D:\Pictures`). Leer `Shell Folders\My Pictures` del registro.
