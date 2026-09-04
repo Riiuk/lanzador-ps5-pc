@@ -264,7 +264,12 @@ def save_config(**changes) -> dict:
     el fichero temporal.
     """
     with _cfg_lock:
-        cfg = load_config()
+        # force=True a proposito: hay TRES procesos escribiendo este fichero y
+        # cada uno tiene su propia copia cacheada. Con la copia en memoria, el
+        # ultimo en escribir revertia lo que hubieran guardado los otros: el
+        # reproductor guardaba el volumen y el demonio, al cerrarse la ventana,
+        # lo devolvia al valor que leyo horas antes.
+        cfg = load_config(force=True)
         cfg.update(changes)
         p = config_path()
         tmp = p.with_suffix(".json.tmp")
@@ -299,6 +304,31 @@ class _NullStream(io.TextIOBase):
 
     def isatty(self):
         return False
+
+
+# Un crash-<rol>-<pid>.log por proceso y arranque. Hace falta abierto ANTES del
+# fallo -no se puede crear despues-, pero queda a cero cuando no hay ninguno,
+# que es lo normal. Como el de audio se relanza en cada partida, sin barrer
+# esto la carpeta de datos acaba con decenas de ficheros vacios.
+CRASH_KEEP_S = 24 * 3600
+
+
+def _limpiar_crash_vacios() -> None:
+    """Borra los crash-*.log que esten vacios Y sean de hace mas de un dia.
+
+    Las dos condiciones, no una: con contenido es justo el volcado que se
+    queria guardar, y uno de hoy puede ser el de un proceso hermano VIVO. No
+    vale fiarse de que Windows impida borrar un fichero abierto, porque si lo
+    dejara borrar perderiamos en silencio el volcado de un cuelgue posterior.
+    """
+    limite = time.time() - CRASH_KEEP_S
+    for p in data_dir().glob("crash-*.log"):
+        try:
+            st = p.stat()
+            if st.st_size == 0 and st.st_mtime < limite:
+                p.unlink()
+        except OSError:
+            pass                 # en uso, o ya lo borro otro: no es asunto nuestro
 
 
 def setup(role: str) -> logging.Logger:
@@ -349,6 +379,7 @@ def setup(role: str) -> logging.Logger:
             str(data_dir() / ("crash-%s-%d.log" % (role, os.getpid()))),
             "w", encoding="utf-8")
         faulthandler.enable(file=_crash_file, all_threads=True)
+        _limpiar_crash_vacios()
     except Exception:
         pass
 

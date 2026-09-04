@@ -34,6 +34,10 @@ FLASH_S = 1.5
 # de modo lo ha generado SDL al destruir la ventana, no el usuario.
 QUIT_GRACE_S = 3.0
 
+# Segundos que el raton tiene que estar quieto sobre la ventana para que el
+# cursor se retire. A pantalla completa esta oculto siempre.
+CURSOR_HIDE_S = 5.0
+
 VOL_REPEAT_DELAY = 0.35     # espera antes de empezar a repetir
 VOL_REPEAT = 0.08           # cadencia mientras se mantiene pulsada
 
@@ -61,6 +65,8 @@ class Display:
         self._notices = {}             # avisos persistentes por clave
         self._mode_error_at = -1e9     # momento del ultimo fallo al cambiar de modo
         self._vol_next = 0.0           # cuando toca la siguiente repeticion
+        self._cursor_on = True         # SDL arranca con el cursor visible
+        self._mouse_last = 0.0         # ultimo gesto del raton
 
         # Buffer BGRA preasignado y superficie creada UNA sola vez.
         #
@@ -77,7 +83,6 @@ class Display:
         self._screen = None
         self._apply_mode()
         pygame.display.set_caption(title)
-        pygame.mouse.set_visible(not self.fullscreen)
 
     # ---------------------------------------------------------------- modo
 
@@ -117,7 +122,7 @@ class Display:
             log.warning("set_mode fallo (%s), se reintenta sin vsync", exc)
             self.vsync = False
             self._screen = pygame.display.set_mode((W, H), flags, display=self.monitor)
-        pygame.mouse.set_visible(not self.fullscreen)
+        self._cursor_reset()
         log.info("modo: %s, vsync=%s, driver=%s",
                  "pantalla completa" if self.fullscreen else "ventana",
                  self.vsync, pygame.display.get_driver())
@@ -138,7 +143,7 @@ class Display:
                 surf = pygame.display.get_surface()
                 if surf is not None:
                     self._screen = surf
-                pygame.mouse.set_visible(not self.fullscreen)
+                self._cursor_reset()
                 self.flash("Pantalla completa" if self.fullscreen else "Ventana")
                 log.info("modo: %s", "pantalla completa" if self.fullscreen else "ventana")
                 return
@@ -192,6 +197,32 @@ class Display:
             self._mode_error_at = time.monotonic()
             return False
 
+    # -------------------------------------------------------------- cursor
+
+    def _cursor(self, visible):
+        """Muestra u oculta el cursor, y SOLO cuando el estado cambia.
+
+        Llamar a set_visible en cada fotograma seria pedirle a SDL sesenta
+        veces por segundo que no cambie nada.
+        """
+        if visible == self._cursor_on:
+            return
+        self._cursor_on = visible
+        try:
+            pygame.mouse.set_visible(visible)
+        except pygame.error as exc:
+            log.debug("set_visible fallo: %s", exc)
+
+    def _cursor_reset(self):
+        """Estado del cursor tras crear o cambiar la ventana.
+
+        En ventana se deja visible y con el reloj a cero, para que volver de
+        pantalla completa no aparezca ya sin cursor; que lo esconda la
+        inactividad. A pantalla completa, oculto y punto.
+        """
+        self._mouse_last = time.monotonic()
+        self._cursor(not self.fullscreen)
+
     # ------------------------------------------------------------- eventos
 
     def pump(self):
@@ -221,6 +252,10 @@ class Display:
                 surf = pygame.display.get_surface()
                 if surf is not None:
                     self._screen = surf
+            elif ev.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN,
+                             pygame.MOUSEWHEEL):
+                self._mouse_last = time.monotonic()
+                self._cursor(True)
             elif ev.type == pygame.KEYDOWN:
                 if ev.key == pygame.K_ESCAPE:
                     log.info("ESC pulsado por el usuario")
@@ -260,6 +295,12 @@ class Display:
                 self._vol_next = ahora + VOL_REPEAT
         else:
             self._vol_next = 0.0
+
+        # SDL solo manda MOUSEMOTION de la ventana con foco, asi que mover el
+        # raton por otro monitor no devuelve el cursor: justo lo que se quiere
+        # mientras juegas.
+        if not self.fullscreen and ahora - self._mouse_last >= CURSOR_HIDE_S:
+            self._cursor(False)
 
         return actions
 
