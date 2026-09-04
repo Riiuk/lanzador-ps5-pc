@@ -86,6 +86,14 @@ Cada una costó una sesión de depuración. Ninguna da un error claro.
 - `cv2.imwrite` **falla en silencio** con rutas no ASCII. Usar `imencode` +
   `write_bytes`.
 
+**Configuración**
+- `core.load_config()` cachea **una copia por proceso**, y `save_config` vuelca
+  el diccionario entero. Con tres procesos escribiendo el mismo `config.json`,
+  el último revertía lo que hubieran guardado los otros: el reproductor guardaba
+  el volumen y el demonio lo devolvía al valor que leyó al arrancar. Por eso
+  `save_config` relee con `force=True` dentro del cerrojo. Medido con dos
+  procesos: 40 volvía a 100.
+
 **Audio**
 - `np.take` con `mode='raise'` está documentado como **siempre buffereado**
   aunque se pase `out=`. Usar `mode='clip'`.
@@ -116,6 +124,15 @@ Cada una costó una sesión de depuración. Ninguna da un error claro.
   no da error pero apunta mal si Imágenes está redirigida. Aquí lo está
   (`D:\Pictures`). Leer `Shell Folders\My Pictures` del registro.
 - Los comentarios `{ }` de Pascal Script **no anidan**.
+- En el `.iss`, **ninguna línea puede empezar por `#`**, ni con espacios delante:
+  el preprocesador la toma por una directiva suya y aborta con «Unknown
+  preprocessor directive». Los `#13#10` van al final de la línea anterior.
+- **Sin `AppMutex`, desinstalar con el programa abierto no da ningún error**:
+  Inno borra lo que puede, los DLL de `_internal` se quedan porque están
+  cargados, y la desinstalación se da por buena. Lo marcan los **tres** procesos
+  (`winhy.marcar_en_uso`), no solo el demonio: quien tiene los DLL abiertos es
+  el reproductor. Verificado que el desinstalador **elevado sí ve un mutex del
+  espacio `Local\`**, así que no hace falta uno `Global\`.
 
 **PowerShell 5.1**
 - `2>&1` sobre un ejecutable nativo envuelve cada línea en un registro de error y
@@ -167,7 +184,8 @@ funciona pero sale mudo— y que el ejecutable **arranca de verdad**
 (`--selftest`). Compilar sin errores no demuestra ninguna de las dos.
 
 Otros modos útiles: `--setup` (busca la consola), `--audio --measure` (mide el
-patrón del driver), `--selftest`, `--player --windowed --format mjpg`.
+patrón del driver), `--selftest`, `--player --windowed --format mjpg`, y
+`--purge-data`, que borra los datos de usuario y lo llama el desinstalador.
 
 ---
 
@@ -190,10 +208,11 @@ patrón del driver), `--selftest`, `--player --windowed --format mjpg`.
 
 - Verificado en un reinicio real (2026-09-04): arranca solo con Windows y
   apagar no saca la pantalla de «esta aplicación impide el apagado».
-- Publicado como *Release* en GitHub: `v1.0.1`, marcado latest, con el
+- Publicado como *Release* en GitHub: `v1.0.2`, marcado latest, con el
   instalador adjunto.
-- Pendiente de recompilar: el globo sin `szInfoTitle` sólo se ha probado con
-  el código fuente; falta verlo en el `.exe` instalado.
+- Verificado en el `.exe` instalado (1.0.2): globo sin el nombre repetido,
+  cursor que se retira a los 5 s, volumen que aguanta entre sesiones y
+  desinstalación que se niega a empezar con el programa abierto.
 - No implementado a propósito: control de cambio rápido de usuario (irrelevante
   en un PC doméstico de un usuario).
 - `jugar.cmd` usa el código fuente, no el `.exe`: útil para probar sin recompilar.
