@@ -327,9 +327,10 @@ class Supervisor:
         temporizador. Se cancela el anterior en cada aviso para que dos cambios
         seguidos no dejen la primera notificacion colgada.
 
-        Nota: el titulo que muestra Windows es el del EJECUTABLE, no el que se
-        pasa aqui. Bajo pythonw.exe sale "Python"; con el .exe propio saldra el
-        nombre de la aplicacion.
+        El globo va SIN titulo propio: Windows ya pone arriba el nombre del
+        EJECUTABLE ("Lanzador PS5" con el .exe, "Python" bajo pythonw), asi que
+        pasar ademas szInfoTitle sacaba el nombre dos veces. Medido con los dos
+        globos seguidos: sin titulo se muestra exactamente igual.
         """
         log.info("AVISO: %s", texto)
         try:
@@ -337,12 +338,29 @@ class Supervisor:
                 return
             if self._timer_aviso is not None:
                 self._timer_aviso.cancel()
-            self.icon.notify(texto, "Lanzador PS5")
+            self._notificar(texto)
             self._timer_aviso = threading.Timer(AVISO_S, self._quitar_aviso)
             self._timer_aviso.daemon = True
             self._timer_aviso.start()
         except Exception:
             log.debug("no se pudo mostrar el aviso", exc_info=True)
+
+    def _notificar(self, texto):
+        """Manda el globo con szInfo y szInfoTitle vacio.
+
+        icon.notify() no admite un titulo vacio: hace `title or self.title or
+        ''` y self.title es nuestro tooltip multilinea, que quedaria aun peor.
+        Por eso se envia el NIF_INFO a mano. Si esa API interna de pystray
+        cambiara, se vuelve al notify de siempre: mejor un titulo repetido que
+        quedarse sin aviso.
+        """
+        try:
+            from pystray._util import win32
+            self.icon._message(win32.NIM_MODIFY, win32.NIF_INFO,
+                               szInfo=texto, szInfoTitle="")
+        except Exception:
+            log.debug("globo sin titulo fallo, se usa notify()", exc_info=True)
+            self.icon.notify(texto, "Lanzador PS5")
 
     def _quitar_aviso(self):
         try:

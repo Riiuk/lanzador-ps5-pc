@@ -104,6 +104,12 @@ Cada una costó una sesión de depuración. Ninguna da un error claro.
   Windows sacaría la pantalla de «esta aplicación impide el apagado» en cada
   apagado. Se corrige sustituyendo su WndProc (`winhy.permitir_apagado`).
 - Las casillas del menú necesitan `icon.update_menu()` o la marca se congela.
+- El globo de la bandeja **repite el nombre de la aplicación** si se le pasa
+  `szInfoTitle`: Windows ya pone arriba el nombre del ejecutable. Y no se
+  puede pedir un título vacío por `icon.notify()`, que hace
+  `title or self.title` y cae en el tooltip multilínea. Se manda el
+  `NIF_INFO` a mano (`daemon._notificar`). Medido: sin título el globo se
+  muestra igual.
 - `SCALED` + `set_mode` repetido agota el renderer de SDL: hay tres planes para
   cambiar de modo, y `toggle_fullscreen()` devuelve 0 **siempre** en esta máquina.
 - **`{userpics}` no existe en Inno Setup**, y `{userprofile}\Pictures` es peor:
@@ -182,9 +188,11 @@ patrón del driver), `--selftest`, `--player --windowed --format mjpg`.
 
 ## Pendiente / ideas
 
-- Verificar tras reiniciar: que arranca solo, que las notificaciones ponen
-  «Lanzador PS5» y que apagar Windows no saca la pantalla de bloqueo.
+- Verificado en un reinicio real (2026-09-04): arranca solo con Windows y
+  apagar no saca la pantalla de «esta aplicación impide el apagado».
 - Publicar el instalador como *Release* en GitHub.
+- Pendiente de recompilar: el globo sin `szInfoTitle` sólo se ha probado con
+  el código fuente; falta verlo en el `.exe` instalado.
 - No implementado a propósito: control de cambio rápido de usuario (irrelevante
   en un PC doméstico de un usuario).
 - `jugar.cmd` usa el código fuente, no el `.exe`: útil para probar sin recompilar.
