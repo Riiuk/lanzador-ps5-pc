@@ -12,8 +12,8 @@ from PyInstaller.utils.win32.versioninfo import (
     FixedFileInfo, StringFileInfo, StringStruct, StringTable,
     VarFileInfo, VarStruct, VSVersionInfo)
 
-VERSION = (1, 0, 2, 0)
-VERSION_TXT = "1.0.2.0"
+VERSION = (1, 0, 3, 0)
+VERSION_TXT = "1.0.3.0"
 
 # Esto NO es decorativo. El nombre que Windows muestra en los globos de
 # notificacion sale del FileDescription del ejecutable, no del titulo que se le

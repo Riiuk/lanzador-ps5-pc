@@ -5,7 +5,7 @@
 ; o, mejor, con  .\build.ps1 -Instalador , que antes construye el .exe.
 
 #define AppName        "Lanzador PS5"
-#define AppVersion     "1.0.2"
+#define AppVersion     "1.0.3"
 #define AppPublisher   "Abel Santiago Fuentes"
 #define AppURL         "https://github.com/Riiuk/lanzador-ps5-pc"
 #define AppExe         "LanzadorPS5.exe"
