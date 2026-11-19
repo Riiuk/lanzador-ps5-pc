@@ -6,6 +6,7 @@ variable de entorno gana; si se pone despues del import, no sirve de nada y el
 escalado 1080p -> 1440p sale sin interpolar, a bloques.
 """
 
+import ctypes
 import os
 
 os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "1")
@@ -50,6 +51,57 @@ DIAG_FULL = 1
 DIAG_FPS = 2
 
 
+# ------------------------------------------------------- escala entera de SDL
+#
+# Ctrl+F pone la pantalla completa "nitida": 1920x1080 a escala entera, que en
+# el panel de 2560x1440 es 1:1 centrado con marco negro. Estirar x1,33 obliga a
+# interpolar y ablanda la imagen; a 1:1 cada pixel de la consola es un pixel
+# del monitor. pygame no expone SDL_RenderSetIntegerScale, asi que se llama por
+# ctypes sobre el MISMO SDL2.dll que ya tiene cargado pygame: es un interruptor
+# sobre el renderer existente, sin set_mode y sin crear otro renderer.
+
+class _SDLRect(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_int), ("y", ctypes.c_int),
+                ("w", ctypes.c_int), ("h", ctypes.c_int)]
+
+
+_sdl = None
+
+
+def _sdl_lib():
+    """El SDL2.dll que YA tiene cargado pygame, con restype/argtypes declarados.
+
+    No se elige una ruta: empaquetado hay dos copias (_internal y
+    _internal\\pygame), y cargar la que no usa pygame daria una segunda SDL
+    sin ninguna ventana. GetModuleHandleW devuelve la del proceso.
+    """
+    global _sdl
+    if _sdl is not None:
+        return _sdl
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.GetModuleHandleW.argtypes = (ctypes.c_wchar_p,)
+    k32.GetModuleHandleW.restype = ctypes.c_void_p
+    handle = k32.GetModuleHandleW("SDL2.dll")
+    if not handle:
+        raise RuntimeError("SDL2.dll no esta cargado en el proceso")
+    lib = ctypes.CDLL("SDL2.dll", handle=handle)
+    lib.SDL_GetWindowFromID.argtypes = (ctypes.c_uint32,)
+    lib.SDL_GetWindowFromID.restype = ctypes.c_void_p
+    lib.SDL_GetWindowFlags.argtypes = (ctypes.c_void_p,)
+    lib.SDL_GetWindowFlags.restype = ctypes.c_uint32
+    lib.SDL_GetRenderer.argtypes = (ctypes.c_void_p,)
+    lib.SDL_GetRenderer.restype = ctypes.c_void_p
+    lib.SDL_RenderSetIntegerScale.argtypes = (ctypes.c_void_p, ctypes.c_int)
+    lib.SDL_RenderSetIntegerScale.restype = ctypes.c_int
+    lib.SDL_RenderGetViewport.argtypes = (ctypes.c_void_p, ctypes.POINTER(_SDLRect))
+    lib.SDL_RenderGetViewport.restype = None
+    _sdl = lib
+    return lib
+
+
+SDL_WINDOW_FULLSCREEN = 0x00000001    # tambien presente en FULLSCREEN_DESKTOP
+
+
 class Display:
     def __init__(self, monitor=0, vsync=False, fullscreen=True, title="PS5"):
         pygame.display.init()
@@ -58,6 +110,8 @@ class Display:
         self.monitor = self._pick_monitor(monitor)
         self.vsync = bool(vsync)
         self.fullscreen = bool(fullscreen)
+        self.sharp = False             # pantalla completa a escala entera (Ctrl+F)
+        self._pgwin = None             # ver _apply_sharp: hay que mantenerlo vivo
         self.diag = DIAG_OFF
 
         self._title = title
@@ -128,8 +182,45 @@ class Display:
                  "pantalla completa" if self.fullscreen else "ventana",
                  self.vsync, pygame.display.get_driver())
 
+    def _mode_label(self):
+        if not self.fullscreen:
+            return "Ventana"
+        return "Pantalla completa nítida (1:1)" if self.sharp else "Pantalla completa"
+
     def toggle_fullscreen(self):
-        """Alterna pantalla completa y ventana. NUNCA lanza excepcion.
+        """F: ventana <-> pantalla completa estirada. NUNCA lanza excepcion.
+
+        Desde la nitida (Ctrl+F) tambien vuelve a ventana: F siempre significa
+        "salir de pantalla completa" si se esta en ella.
+        """
+        self.sharp = False
+        if self._switch_mode(not self.fullscreen):
+            self._apply_sharp()
+            self.flash(self._mode_label())
+
+    def toggle_sharp(self):
+        """Ctrl+F: ventana <-> pantalla completa nitida. NUNCA lanza excepcion.
+
+        Desde la pantalla completa estirada no se cambia de modo: basta con
+        activar la escala entera sobre el renderer que ya hay.
+        """
+        if self.fullscreen and self.sharp:
+            self.sharp = False
+            ok = self._switch_mode(False)
+        elif self.fullscreen:
+            self.sharp = True
+            ok = True
+        else:
+            self.sharp = True
+            ok = self._switch_mode(True)
+            if not ok:
+                self.sharp = False
+        if ok and self._apply_sharp():
+            self.flash(self._mode_label())
+
+    def _switch_mode(self, want):
+        """Pone la ventana en `want` (True = pantalla completa). Devuelve si lo
+        ha conseguido; si no, ya ha avisado al usuario.
 
         Con SCALED hay que usar toggle_fullscreen(): volver a llamar a
         set_mode() destruye el renderer y SDL contesta "failed to create
@@ -137,20 +228,25 @@ class Display:
         excepcion aqui subia hasta arriba y cerraba la partida entera: pulsar F
         apagaba el juego en vez de ponerlo en ventana.
         """
-        want = not self.fullscreen
+        if want == self.fullscreen:
+            return True
+        # El valor de retorno de toggle_fullscreen() NO dice si ha funcionado:
+        # medido, devuelve 0 en 20 de 20 cambios que SI se hicieron. Leerlo
+        # como fallo ejecutaba el plan B encima en cada F, que es justo lo que
+        # agota el renderer. La verdad es la bandera de la ventana de SDL.
         try:
-            if pygame.display.toggle_fullscreen():
-                self.fullscreen = want
-                surf = pygame.display.get_surface()
-                if surf is not None:
-                    self._screen = surf
-                self._cursor_reset()
-                self.flash("Pantalla completa" if self.fullscreen else "Ventana")
-                log.info("modo: %s", "pantalla completa" if self.fullscreen else "ventana")
-                return
-            log.warning("toggle_fullscreen no pudo cambiar de modo")
+            pygame.display.toggle_fullscreen()
         except pygame.error as exc:
             log.warning("toggle_fullscreen fallo: %s", exc)
+        if self._is_fullscreen_now() == want:
+            self.fullscreen = want
+            surf = pygame.display.get_surface()
+            if surf is not None:
+                self._screen = surf
+            self._cursor_reset()
+            log.info("modo: %s", "pantalla completa" if self.fullscreen else "ventana")
+            return True
+        log.warning("toggle_fullscreen no cambio de modo")
 
         # Plan B: recrear la ventana con set_mode. Funciona las primeras veces,
         # pero con SCALED cada cambio destruye y recrea el renderer de SDL y
@@ -159,8 +255,7 @@ class Display:
         self.fullscreen = want
         try:
             self._apply_mode()
-            self.flash("Pantalla completa" if self.fullscreen else "Ventana")
-            return
+            return True
         except pygame.error as exc:
             log.warning("set_mode no pudo cambiar de modo: %s", exc)
 
@@ -168,13 +263,72 @@ class Display:
         # limpia el renderer roto, y por eso existe: sin esto la ventana se
         # queda bloqueada en el modo en el que estuviera.
         if self._rebuild():
-            self.flash("Pantalla completa" if self.fullscreen else "Ventana")
-            return
+            return True
 
         self.fullscreen = not want
         self._mode_error_at = time.monotonic()
         log.error("no se pudo cambiar de modo por ninguna via")
         self.flash("No se ha podido cambiar entre ventana y pantalla completa", 2.5)
+        return False
+
+    def _sdl_window(self):
+        """(lib SDL, puntero SDL_Window de la ventana actual). Puede lanzar.
+
+        La referencia al Window de pygame se GUARDA. from_display_module()
+        cuelga de la ventana de SDL un puntero al objeto Python que devuelve, y
+        el codigo de eventos de pygame lo lee despues: si el objeto se libera,
+        el siguiente event.get() es un acceso a memoria ya liberada. Medido:
+        sin guardarla, access violation al primer o tercer cambio de modo;
+        guardandola, ninguno.
+        """
+        sdl = _sdl_lib()
+        from pygame._sdl2.video import Window
+        self._pgwin = Window.from_display_module()
+        return sdl, sdl.SDL_GetWindowFromID(self._pgwin.id)
+
+    def _is_fullscreen_now(self):
+        """Estado REAL de la ventana segun SDL, o None si no se puede leer
+        (y entonces el que llama no da el cambio por bueno)."""
+        try:
+            sdl, win = self._sdl_window()
+            if not win:
+                return None
+            return bool(sdl.SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN)
+        except Exception as exc:
+            log.warning("no se pudo leer el modo de la ventana: %s", exc)
+            return None
+
+    def _apply_sharp(self):
+        """Aplica la escala entera que toque al renderer ACTUAL.
+
+        Hay que llamarla tras CUALQUIER cambio de modo: medido, pygame la
+        devuelve a 0 al volver a pantalla completa aunque el renderer sea el
+        mismo, y set_mode o reiniciar el video crean uno nuevo sin ella. En
+        ventana va siempre apagada: SCALED ya da 1:1 a 1920x1080 y con ella
+        encendida, agrandar la ventana no estiraria la imagen.
+
+        Devuelve False (y avisa) solo si se pidio la nitida y no se pudo.
+        """
+        on = self.sharp and self.fullscreen
+        try:
+            sdl, win = self._sdl_window()
+            ren = sdl.SDL_GetRenderer(win) if win else None
+            if not ren:
+                raise RuntimeError("la ventana no tiene renderer de SDL")
+            if sdl.SDL_RenderSetIntegerScale(ren, 1 if on else 0) != 0:
+                raise RuntimeError("SDL_RenderSetIntegerScale fallo")
+            vp = _SDLRect()
+            sdl.SDL_RenderGetViewport(ren, ctypes.byref(vp))
+            log.info("escala entera %s, viewport (%d,%d,%d,%d)",
+                     "ON" if on else "OFF", vp.x, vp.y, vp.w, vp.h)
+            return True
+        except Exception as exc:
+            log.warning("no se pudo cambiar la escala entera: %s", exc)
+            if not on:
+                return True    # apagarla es lo que ya hay si nunca se encendio
+            self.sharp = False
+            self.flash("No se ha podido activar la pantalla completa nítida", 2.5)
+            return False
 
     def _rebuild(self):
         """Reinicia el subsistema de video y rehace la ventana.
@@ -191,6 +345,8 @@ class Display:
             surf = pygame.display.get_surface()
             if surf is not None:
                 self._screen = surf
+            if self.sharp:
+                self._apply_sharp()    # el renderer nuevo nace sin ella
             log.info("ventana reconstruida")
             return True
         except pygame.error as exc:
@@ -254,6 +410,11 @@ class Display:
                 surf = pygame.display.get_surface()
                 if surf is not None:
                     self._screen = surf
+                # pygame recalcula la escala al redimensionar y se ha medido
+                # que la devuelve a 0 al volver a pantalla completa: por si un
+                # cambio que no hemos pedido nosotros hace lo mismo.
+                if self.sharp:
+                    self._apply_sharp()
             elif ev.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN,
                              pygame.MOUSEWHEEL):
                 self._mouse_last = time.monotonic()
@@ -263,7 +424,10 @@ class Display:
                     log.info("ESC pulsado por el usuario")
                     actions.append(QUIT)
                 elif ev.key == pygame.K_f:
-                    self.toggle_fullscreen()
+                    if ev.mod & pygame.KMOD_CTRL:
+                        self.toggle_sharp()
+                    else:
+                        self.toggle_fullscreen()
                 elif ev.key == pygame.K_d:
                     # Cada tecla alterna su propio nivel contra OFF, asi que
                     # pulsar la que ya esta activa lo apaga y pulsar la otra
@@ -395,7 +559,7 @@ if __name__ == "__main__":
     frame = np.zeros((H, W, 3), np.uint8)
     running, i = True, 0
     conv = blit = 0.0
-    print("F alterna, D diagnostico completo, Ctrl+D solo fps, P aviso, ESC sale")
+    print("F alterna, Ctrl+F pantalla completa nitida 1:1, D diagnostico completo, Ctrl+D solo fps, P aviso, ESC sale")
     while running:
         i += 1
         frame[:] = 0
