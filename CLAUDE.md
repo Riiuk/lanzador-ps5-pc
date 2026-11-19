@@ -119,7 +119,20 @@ Cada una costó una sesión de depuración. Ninguna da un error claro.
   `NIF_INFO` a mano (`daemon._notificar`). Medido: sin título el globo se
   muestra igual.
 - `SCALED` + `set_mode` repetido agota el renderer de SDL: hay tres planes para
-  cambiar de modo, y `toggle_fullscreen()` devuelve 0 **siempre** en esta máquina.
+  cambiar de modo. **El retorno de `toggle_fullscreen()` no vale**: devuelve 0
+  en 20 de 20 cambios que sí se hicieron. Leído como fallo, el plan B
+  (`set_mode`) se ejecutaba encima en cada F hasta la 1.0.3. Desde la 1.0.4 se
+  mira la bandera real (`SDL_GetWindowFlags`): 20 de 20 por el plan A.
+- **`Window.from_display_module()` hay que guardarlo.** Cuelga de la ventana de
+  SDL un puntero al objeto Python que devuelve; si se libera, el siguiente
+  `event.get()` es un *access violation* sin traza útil. Medido: sin guardar,
+  crash al primer o tercer cambio de modo; guardado, 75 cambios sin fallo.
+- La escala entera (Ctrl+F, `SDL_RenderSetIntegerScale` por ctypes) **la
+  resetea pygame** al volver a pantalla completa, con el mismo renderer: se
+  reaplica tras cada cambio de modo. Minimizar/restaurar la conserva.
+- Empaquetado hay **dos `SDL2.dll`** (`_internal` y `_internal\pygame`). Para
+  llamar a SDL por ctypes se coge la ya cargada con `GetModuleHandleW`, nunca
+  por ruta: la otra copia sería una SDL sin ventanas.
 - **Quien muestra el cursor tiene que tener quién lo esconda.** `MOUSEMOTION`
   saca el puntero sin mirar el modo, pero el temporizador de inactividad
   miraba `not self.fullscreen`: a pantalla completa el primer movimiento del
