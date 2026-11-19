@@ -228,8 +228,13 @@ patrón del driver), `--selftest`, `--player --windowed --format mjpg`, y
 
 - Verificado en un reinicio real (2026-09-04): arranca solo con Windows y
   apagar no saca la pantalla de «esta aplicación impide el apagado».
-- Publicado como *Release* en GitHub: `v1.0.3`, marcado latest, con el
+- Publicado como *Release* en GitHub: `v1.0.4`, marcado latest, con el
   instalador adjunto.
+- Verificado en el `.exe` instalado (1.0.4, 2026-11-19): Ctrl+F da la
+  pantalla completa nítida 1:1 con marco negro en el monitor de 1440p, jugando
+  un rato sin fallos. Si algún día molesta la blandura de F, la vía viable es
+  Lossless Scaling por encima (FSR/LS1). Escalar con IA está descartado: no
+  llega a 60 fps en tiempo real con una RTX 2080 y añade latencia.
 - Verificado en el `.exe` instalado (1.0.3): globo sin el nombre repetido,
   cursor que se retira a los 5 s **también a pantalla completa**, volumen que
   aguanta entre sesiones y desinstalación que se niega a empezar con el
